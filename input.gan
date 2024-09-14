@@ -1,0 +1,12 @@
+function main
+    for i in 0..10
+        print("")
+    endfor
+
+    while x < 10
+        if x < 5
+            print("legal")
+        endif
+    endwhile
+endfunction
+
