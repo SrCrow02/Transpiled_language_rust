@@ -2,15 +2,19 @@ use regex::Regex;
 use std::collections::HashMap;
 
 pub fn transpile_code(input: &str) -> String {
+    // Compilar a expressão regular para análise de comandos
     let re = Regex::new(r#"^(\w+)\s*(.*)$"#).unwrap();
+    
+    // Inicializar variáveis para controle do processo de transpilação
     let mut output = String::new();
     let mut commands: HashMap<&str, fn(&str) -> String> = HashMap::new();
     let mut inside_function = false;
+    let mut inside_struct = false;
     let mut current_function = String::new();
     let mut indentation = 0;
     let mut add_actix_code = false;
 
-    // Mapeando os comandos
+    // Mapear comandos para suas respectivas funções de processamento
     commands.insert("route", route_command);
     commands.insert("function", function_command);
     commands.insert("print", print_command);
@@ -27,56 +31,86 @@ pub fn transpile_code(input: &str) -> String {
     commands.insert("endelse", endelse_command);
     commands.insert("let", let_command);
     commands.insert("var", mut_command);
-    commands.insert("match", match_command);
-    commands.insert("endmatch", endmatch_command);
+    // commands.insert("match", match_command);
+    // commands.insert("endmatch", endmatch_command);
     commands.insert("struct", struct_command);
     commands.insert("endstruct", endstruct_command);
+    commands.insert("array", array_command);
 
+    // Processar cada linha do input
     for line in input.lines() {
         if let Some(caps) = re.captures(line.trim()) {
             let command = caps.get(1).map_or("", |m| m.as_str());
             let args = caps.get(2).map_or("", |m| m.as_str());
 
+            // Verificar se estamos entrando em uma função ou rota
             if command == "function" || command == "route" {
                 inside_function = true;
                 current_function = args.split_whitespace().next().unwrap_or("").to_string();
                 indentation = 0;  // Reiniciar a indentação para nova função
             }
 
+            // Verificar se estamos entrando em uma struct
+            if command == "struct" {
+                inside_struct = true;
+            }
+
+            // Processar o comando se ele existir no mapa de comandos
             if let Some(func) = commands.get(command) {
                 let code = func(args);
                 output.push_str(&"    ".repeat(indentation));
                 output.push_str(&code);
                 output.push('\n');
                 
-                // Aumentar indentação após declaração de função/rota
-                if command == "route" || command == "function" {
-                    indentation += 1;
-                } else if command == "endfunction" {
-                    inside_function = false;
-                    current_function.clear();
-                    indentation = 0;
-                } else if command == "webapp" {
-                    add_actix_code = true;  // Definir flag para adicionar código Actix
+                // Ajustar indentação após declarações específicas
+                match command {
+                    "route" | "function" | "for" | "while" | "if" | "else" | "match" | "struct" => indentation += 1,
+                    "endfunction" | "endfor" | "endwhile" | "endif" | "endelse" | "endmatch" | "endstruct" => {
+                        indentation = indentation.saturating_sub(1);
+                        if command == "endfunction" {
+                            inside_function = false;
+                            current_function.clear();
+                        }
+                        if command == "endstruct" {
+                            inside_struct = false;
+                        }
+                    },
+                    "webapp" => add_actix_code = true,
+                    _ => {}
                 }
-            } else if inside_function {
+            } else if inside_function || inside_struct {
+                // Processar conteúdo dentro de funções ou structs
                 output.push_str(&"    ".repeat(indentation));
                 output.push_str(line.trim());
-                output.push_str(";\n");  // Adicionar ponto e vírgula no final de cada linha
+                if inside_struct {
+                    output.push_str(",");  // Adiciona vírgula para campos da struct
+                } else if inside_function && !["if", "else", "for", "while"].contains(&command) {
+                    output.push_str(";");  // Adiciona ponto e vírgula dentro de funções
+                }
+                output.push('\n');
             } else {
+                // Linhas desconhecidas ou mal posicionadas são comentadas
                 output.push_str(&format!("// Unknown command or misplaced code: {}\n", line.trim()));
             }
         } else if !line.trim().is_empty() {
-            if inside_function {
+            // Processar linhas que não são comandos
+            if inside_function || inside_struct {
                 output.push_str(&"    ".repeat(indentation));
                 output.push_str(line.trim());
-                output.push_str(";\n");  // Adicionar ponto e vírgula
+                if inside_struct {
+                    output.push_str(",");  // Adiciona vírgula para campos da struct
+                } else if inside_function && !line.trim().ends_with('{') && !line.trim().ends_with('}') {
+                    output.push_str(";");  // Adiciona ponto e vírgula dentro de funções
+                }
+                output.push('\n');
             } else {
+                // Comentar linhas fora de funções ou structs
                 output.push_str(&format!("// {}\n", line.trim()));
             }
         }
     }
 
+    // Adicionar código Actix se necessário
     if add_actix_code {
         if !output.contains("async fn main()") {
             output.push_str("\n#[actix_web::main]\n");
@@ -94,7 +128,6 @@ pub fn transpile_code(input: &str) -> String {
 
     output
 }
-
 fn route_command(args: &str) -> String {
     let parts: Vec<&str> = args.split_whitespace().collect();
     if parts.len() >= 2 {
@@ -165,7 +198,7 @@ fn print_command(message: &str) -> String {
 }
 
 fn return_command(args: &str) -> String {
-    format!("{}", args)
+    format!("return {};", args)
 }
 
 fn endfunction_command(_: &str) -> String {
@@ -184,13 +217,13 @@ fn mut_command(args: &str) -> String {
     format!("let mut {};", args)
 }
 
-fn match_command(args: &str) -> String {
-    format!("match {} {{", args)
-}
+// fn match_command(args: &str) -> String {
+//     format!("match {} {{", args)
+// }
 
-fn endmatch_command(_: &str) -> String {
-    "}".to_string()
-}
+// fn endmatch_command(_: &str) -> String {
+//     "}".to_string()
+// }
 
 fn struct_command(args: &str) -> String {
     format!("struct {} {{", args)
@@ -198,4 +231,15 @@ fn struct_command(args: &str) -> String {
 
 fn endstruct_command(_: &str) -> String {
     "}".to_string()
+}
+
+fn array_command(args: &str) -> String {
+    let parts: Vec<&str> = args.split("=").collect();
+    if parts.len() == 2 {
+        let var_name = parts[0].trim();
+        let values = parts[1].trim();
+        format!("let {} = [{}]", var_name, values)
+    } else {
+        "// Invalid array declaration".to_string()
+    }
 }

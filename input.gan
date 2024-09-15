@@ -1,27 +1,25 @@
-function main
-    for i in 0..10
-        print("")
+function create_person
+    struct Person
+        name: String
+        age: i32
+    endstruct
+
+    let name = "Alice"
+    let age = 30
+    let person = Person { name, age }
+    return person
+endfunction
+
+function print_person_info
+    let person = create_person()
+    print("Name: " + person.name)
+    print("Age: " + person.age.to_string())
+endfunction
+
+
+function array_test
+    let numbers = [10, 20, 30, 40, 50]
+    for num in numbers
+        print(num)
     endfor
-
-    let x = 2
-    while x < 10
-        run()
-        if x < 5
-            print("legal")
-        endif
-        else 
-            print("Nao e legal")
-            let x = 2
-            var y = 5
-        endelse
-    endwhile
 endfunction
-
-
-function run
-    println("oi")
-endfunction
-
-struct 
-    
-endstruct
