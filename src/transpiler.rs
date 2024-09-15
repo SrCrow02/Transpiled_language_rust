@@ -22,6 +22,8 @@ pub fn transpile_code(input: &str) -> String {
     commands.insert("endwhile", endwhile_command);
     commands.insert("if", if_command);
     commands.insert("endif", endif_command);
+    commands.insert("else", else_command);
+    commands.insert("endelse", endelse_command);
 
     for line in input.lines() {
         if let Some(caps) = re.captures(line.trim()) {
@@ -138,6 +140,14 @@ fn if_command(args: &str) -> String {
 }
 
 fn endif_command(_: &str) -> String {
+    "}".to_string()
+}
+
+fn else_command(_: &str) -> String {
+    "else {".to_string()
+}
+
+fn endelse_command(_: &str) -> String {
     "}".to_string()
 }
 

@@ -4,9 +4,17 @@ function main
     endfor
 
     while x < 10
+        run()
         if x < 5
             print("legal")
         endif
+        else 
+            print("Nao e legal")
+        endelse
     endwhile
 endfunction
 
+
+function run
+    println("oi")
+endfunction
