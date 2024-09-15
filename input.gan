@@ -3,6 +3,7 @@ function main
         print("")
     endfor
 
+    let x = 2
     while x < 10
         run()
         if x < 5
@@ -10,6 +11,8 @@ function main
         endif
         else 
             print("Nao e legal")
+            let x = 2
+            var y = 5
         endelse
     endwhile
 endfunction
@@ -18,3 +21,7 @@ endfunction
 function run
     println("oi")
 endfunction
+
+struct 
+    
+endstruct

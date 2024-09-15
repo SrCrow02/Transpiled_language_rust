@@ -10,6 +10,7 @@ pub fn transpile_code(input: &str) -> String {
     let mut indentation = 0;
     let mut add_actix_code = false;
 
+    // Mapeando os comandos
     commands.insert("route", route_command);
     commands.insert("function", function_command);
     commands.insert("print", print_command);
@@ -24,6 +25,12 @@ pub fn transpile_code(input: &str) -> String {
     commands.insert("endif", endif_command);
     commands.insert("else", else_command);
     commands.insert("endelse", endelse_command);
+    commands.insert("let", let_command);
+    commands.insert("var", mut_command);
+    commands.insert("match", match_command);
+    commands.insert("endmatch", endmatch_command);
+    commands.insert("struct", struct_command);
+    commands.insert("endstruct", endstruct_command);
 
     for line in input.lines() {
         if let Some(caps) = re.captures(line.trim()) {
@@ -33,7 +40,7 @@ pub fn transpile_code(input: &str) -> String {
             if command == "function" || command == "route" {
                 inside_function = true;
                 current_function = args.split_whitespace().next().unwrap_or("").to_string();
-                indentation = 0;  // Reset indentation for new function
+                indentation = 0;  // Reiniciar a indentação para nova função
             }
 
             if let Some(func) = commands.get(command) {
@@ -42,19 +49,20 @@ pub fn transpile_code(input: &str) -> String {
                 output.push_str(&code);
                 output.push('\n');
                 
+                // Aumentar indentação após declaração de função/rota
                 if command == "route" || command == "function" {
-                    indentation += 1;  // Increase indentation after function/route declaration
+                    indentation += 1;
                 } else if command == "endfunction" {
                     inside_function = false;
                     current_function.clear();
                     indentation = 0;
                 } else if command == "webapp" {
-                    add_actix_code = true;  // Set flag to add Actix code
+                    add_actix_code = true;  // Definir flag para adicionar código Actix
                 }
             } else if inside_function {
                 output.push_str(&"    ".repeat(indentation));
                 output.push_str(line.trim());
-                output.push('\n');
+                output.push_str(";\n");  // Adicionar ponto e vírgula no final de cada linha
             } else {
                 output.push_str(&format!("// Unknown command or misplaced code: {}\n", line.trim()));
             }
@@ -62,7 +70,7 @@ pub fn transpile_code(input: &str) -> String {
             if inside_function {
                 output.push_str(&"    ".repeat(indentation));
                 output.push_str(line.trim());
-                output.push('\n');
+                output.push_str(";\n");  // Adicionar ponto e vírgula
             } else {
                 output.push_str(&format!("// {}\n", line.trim()));
             }
@@ -121,6 +129,7 @@ fn while_command(args: &str) -> String {
 fn endwhile_command(_: &str) -> String {
     "}".to_string()
 }
+
 fn function_command(args: &str) -> String {
     let parts: Vec<&str> = args.split_whitespace().collect();
     if parts.len() >= 1 {
@@ -152,7 +161,7 @@ fn endelse_command(_: &str) -> String {
 }
 
 fn print_command(message: &str) -> String {
-    format!("println!({});", message)
+    format!("println!{};", message.trim_matches('"'))
 }
 
 fn return_command(args: &str) -> String {
@@ -165,4 +174,28 @@ fn endfunction_command(_: &str) -> String {
 
 fn webapp_command(_: &str) -> String {
     "".to_string()
+}
+
+fn let_command(args: &str) -> String {
+    format!("let {};", args)
+}   
+
+fn mut_command(args: &str) -> String {
+    format!("let mut {};", args)
+}
+
+fn match_command(args: &str) -> String {
+    format!("match {} {{", args)
+}
+
+fn endmatch_command(_: &str) -> String {
+    "}".to_string()
+}
+
+fn struct_command(args: &str) -> String {
+    format!("struct {} {{", args)
+}
+
+fn endstruct_command(_: &str) -> String {
+    "}".to_string()
 }
